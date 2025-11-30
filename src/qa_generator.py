@@ -14,6 +14,10 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 import os
 import sys
+from dotenv import load_dotenv
+
+# Load env vars if not already loaded
+load_dotenv()
 
 # Configurações
 INITIAL_CHUNK_SIZE = 15000

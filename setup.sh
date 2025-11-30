@@ -120,7 +120,7 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # Verificar Docker Compose
-if ! command -v docker-compose &> /dev/null; then
+if ! command -v docker compose &> /dev/null; then
     log_error "Docker Compose não está instalado"
     if [ "$WSL_ENVIRONMENT" = true ]; then
         log_info "Docker Compose deve vir com Docker Desktop"
@@ -212,7 +212,7 @@ if [ "$CLEAN_MODE" = true ]; then
     fi
     
     log_info "Parando containers..."
-    docker-compose down --remove-orphans 2>/dev/null || true
+    docker compose down --remove-orphans 2>/dev/null || true
     
     log_info "Verificando volumes existentes..."
     
@@ -259,7 +259,7 @@ fi
 # Rebuild se solicitado
 if [ "$REBUILD_MODE" = true ]; then
     log_info "Rebuilding containers..."
-    docker-compose build --no-cache
+    docker compose build --no-cache
     log_success "Rebuild concluído"
 fi
 
@@ -622,12 +622,12 @@ fi
 
 log_success "Arquivos do projeto verificados"
 
-# Preparar docker-compose baseado no modo
+# Preparar docker compose baseado no modo
 COMPOSE_FILE="docker-compose.yml"
 
 if [ "$DEV_MODE" = true ]; then
     log_info "Modo desenvolvimento ativado"
-    # Criar docker-compose override para desenvolvimento
+    # Criar docker compose override para desenvolvimento
     cat > docker-compose.override.yml << 'EOF'
 version: '3.8'
 
@@ -653,10 +653,10 @@ fi
 log_info "Iniciando serviços Docker..."
 
 if [ "$DEV_MODE" = true ]; then
-    docker-compose up -d qdrant minio postgres n8n rag-demo-app
+    docker compose up -d qdrant minio postgres n8n rag-demo-app
     log_info "Serviços iniciados em modo desenvolvimento (incluindo PostgreSQL e n8n)"
 else
-    docker-compose up -d
+    docker compose up -d
     log_info "Todos os serviços iniciados"
 fi
 
@@ -702,7 +702,7 @@ check_service "MinIO" "http://localhost:9000/minio/health/live"
 # Verificar PostgreSQL
 log_info "Verificando PostgreSQL..."
 sleep 5  # PostgreSQL demora um pouco para inicializar
-if docker-compose exec postgres pg_isready -U chat_user -d chat_memory &> /dev/null; then
+if docker compose exec postgres pg_isready -U chat_user -d chat_memory &> /dev/null; then
     log_success "PostgreSQL está rodando"
 else
     log_warning "PostgreSQL ainda está inicializando (normal)"
@@ -759,7 +759,7 @@ if [ -f "scripts/test-postgres-connection.py" ]; then
     fi
 else
     log_warning "Script de teste PostgreSQL não encontrado"
-    log_info "Para testar PostgreSQL manualmente, execute: docker-compose exec postgres psql -U chat_user -d chat_memory"
+    log_info "Para testar PostgreSQL manualmente, execute: docker compose exec postgres psql -U chat_user -d chat_memory"
 fi
 
 # Resultados finais

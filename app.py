@@ -1671,10 +1671,12 @@ def debug_collections_count_comparison():
         }), 500
 
 
+
+
 if __name__ == '__main__':
     print("=== ROTAS REGISTRADAS ===", file=sys.stderr)
     for rule in app.url_map.iter_rules():
         print(f"  {rule.rule} -> {rule.endpoint}", file=sys.stderr)
     print("=========================", file=sys.stderr)
     
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True) 
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)

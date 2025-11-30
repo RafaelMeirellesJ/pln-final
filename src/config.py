@@ -44,15 +44,15 @@ class Config:
     EMBEDDING_MODELS = {
         "openai": {
             "name": "OpenAI Text Embedding",
-            "model": "text-embedding-3-small",
-            "dimension": 1536,
+            "model": "text-embedding-3-large",
+            "dimension": 3072,
             "provider": "openai",
             "api_key_env": "OPENAI_API_KEY"
         },
         "gemini": {
             "name": "Google Gemini Embedding v2",
-            "model": "models/gemini-embedding-001",  # Modelo mais recente e avançado
-            "dimension": 3072,  # Dimensão correta do modelo Gemini
+            "model": "models/text-embedding-004",
+            "dimension": 768,
             "provider": "gemini",
             "api_key_env": "GEMINI_API_KEY"
         }

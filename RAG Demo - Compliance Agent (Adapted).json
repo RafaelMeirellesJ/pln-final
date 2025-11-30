@@ -1,0 +1,660 @@
+{
+  "name": "RAG Demo - Compliance Agent (Adapted)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-proxy",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        416,
+        -272
+      ],
+      "id": "0224089b-87e4-458c-9a37-9b59e932b4b1",
+      "name": "Webhook",
+      "webhookId": "9d4e7152-1617-4029-9c2a-b7f070cca981"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2336,
+        -272
+      ],
+      "id": "0d436b8d-20ff-47ee-ad6a-9c5bc3760f40",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        656,
+        16
+      ],
+      "id": "fe4cf6fc-72bf-4820-af2a-6cee12059c75",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "5Eqc9l90eqhUaLqy",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Função para criar a frase consolidada com modelos e suas collections\n\nconst input = items[0].json;\nconst models = input.body.models;\n\n// Lista de modelos ativos\nconst modelosAtivos = Object.keys(models).filter(m => models[m].enabled);\n\n// Texto inicial listando os modelos\nlet texto = \"Utilize \" + modelosAtivos.map(m => `o modelo ${m}`).join(\" e \") + \". \";\n\n// Agora detalhamos cada modelo e suas collections\nfor (const [modelo, dados] of Object.entries(models)) {\n  if (dados.enabled && Array.isArray(dados.collections)) {\n    const collections = dados.collections.join(\", \");\n    texto += `Para o modelo ${modelo}, as collections ativas são ${collections}. `;\n  }\n}\n\nreturn [\n  {\n    json: {\n      result: texto.trim()\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        -272
+      ],
+      "id": "10af666e-efd2-4b2a-a6af-640852b5d8da",
+      "name": "Lista Collections"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook').item.json.body.session_id }}",
+        "contextWindowLength": 30
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        816,
+        16
+      ],
+      "id": "c4ae262c-c37b-4bf5-b5f6-2c25a5a065e6",
+      "name": "Postgres Chat Memory",
+      "credentials": {
+        "postgres": {
+          "id": "nsqbuqeC4KUPUNXJ",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "=Planejamento de Execução:\n\n1. 🛑 **RESTRIÇÃO DE ESCOPO**: Você está estritamente limitado a usar APENAS os recursos listados aqui: {{ $('Lista Collections').item.json.result }}\n2. **Estratégia Multi-Modelo**: Se houver mais de um modelo ativo (ex: OpenAI e Gemini), é OBRIGATÓRIO consultar ambos para comparar as respostas.\n3. **Uso de Ferramentas**: Para cada modelo ativo, chame seu respectivo 'Agente Compliance' (que tem acesso aos documentos e QA).\n\nPense passo a passo em quais ferramentas chamar agora."
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolThink",
+      "typeVersion": 1.1,
+      "position": [
+        976,
+        16
+      ],
+      "id": "e48d42b8-4327-488f-8e34-f634971cf82c",
+      "name": "Think"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.pergunta }}.\nNesta consulta, siga o seguinte: {{ $('Lista Collections').item.json.result }}.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=Você é um assistente de pesquisa e inovação industrial. Você só utilizará os recursos conforme os modelos escolhidos. Caso ambos os modelos tenham sido escolhidos, faça a mesma busca nos dois agentes especializados.\n\nSepare sua resposta por modelos consultados: Qual a resposta do modelo OpenAI e qual a resposta do modelo Gemini."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1296,
+        -272
+      ],
+      "id": "5ced96a6-0d89-4826-9cf1-f74997994f7e",
+      "name": "Agente Proxy"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5523e481-9a84-48a0-a8fb-db926a627de4",
+              "name": "pergunta",
+              "value": "={{ $('Webhook').item.json.body.question }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        848,
+        -272
+      ],
+      "id": "ad358454-82e5-4575-bae0-748295f601cb",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1792,
+        400
+      ],
+      "id": "5da0c356-ea94-41ac-9932-87843ff8a5d7",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "5Eqc9l90eqhUaLqy",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Agente que faz busca em documentos de compliance e normas",
+        "text": "=Com base na pergunta \"{{ $('Edit Fields').item.json.pergunta }}\", faça a busca de informações de compliance com base em seu documentos.",
+        "options": {
+          "systemMessage": "Você é um assistente de especialista em compliance e segurança cibernética vetorizados utilizando embeddings OpenAI. \n\nREGRAS CRÍTICAS:\n1. Responda ESTRITAMENTE com base nas informações encontradas nos documentos (contexto).\n2. Para cada pergunta, você DEVE consultar TANTO a ferramenta de 'Compliance Docs' (documentos completos) quanto a ferramenta de 'QA Compliance' (perguntas e respostas). Combine as informações de ambas para uma resposta completa.\n3. Se a informação NÃO estiver nos documentos, responda APENAS: \"Não encontrei informações relevantes nos documentos consultados.\". NUNCA invente ou use conhecimento externo.\n4. Formate sua resposta usando MARKDOWN (títulos, bullet points, negrito) para facilitar a leitura.\n5. Sempre cite o nome do arquivo fonte se disponível.\n\nIdentifique o modelo de embedding: \"Segundo o modelo de embeddings OpenAI\"."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        1792,
+        224
+      ],
+      "id": "856f2af1-4147-407e-861f-a89052782c3b",
+      "name": "Agente Compliance OpenAI"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Nesta coleção você encontra documentos de compliance completos de normas e leis. Utilize documentos de compliance completos como enriquecimento de informações sobre os normas e leis relevantes.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "compliance_openai",
+          "mode": "list",
+          "cachedResultName": "compliance_openai"
+        },
+        "topK": 10,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        2176,
+        400
+      ],
+      "id": "5586c749-9700-4f29-987d-5f3c50718639",
+      "name": "Compliance Docs OpenAI",
+      "credentials": {
+        "qdrantApi": {
+          "id": "HOEYWKCF9PjuuqWl",
+          "name": "QdrantApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Aqui estão armazenadas perguntas e respostas sobre documentos de compliance de normas e leis. Perguntas e respostas refinam melhor a indicação de concultores.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "qa_compliance_openai",
+          "mode": "list",
+          "cachedResultName": "qa_compliance_openai"
+        },
+        "topK": 10,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        1920,
+        400
+      ],
+      "id": "fa4b7086-ad6a-4881-923b-6849d320bf17",
+      "name": "QA Compliance OpenAI",
+      "credentials": {
+        "qdrantApi": {
+          "id": "HOEYWKCF9PjuuqWl",
+          "name": "QdrantApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-large",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1920,
+        592
+      ],
+      "id": "8332f32f-cbfa-49b9-9f5a-31c0ccc980aa",
+      "name": "EmbOpenAI-QA",
+      "credentials": {
+        "openAiApi": {
+          "id": "5Eqc9l90eqhUaLqy",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-large",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        2176,
+        592
+      ],
+      "id": "0f013605-db2a-478d-9ca0-b277456833f6",
+      "name": "EmbOpenAI-full",
+      "credentials": {
+        "openAiApi": {
+          "id": "5Eqc9l90eqhUaLqy",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "text": "=Com base na pergunta \"{{ $('Edit Fields').item.json.pergunta }}\", faça a busca de informações de compliance com base em seu documentos.",
+        "options": {
+          "systemMessage": "Você é um assistente de especialista em compliance e segurança cibernética vetorizados utilizando embeddings Gemini. \n\nREGRAS CRÍTICAS:\n1. Responda ESTRITAMENTE com base nas informações encontradas nos documentos (contexto).\n2. Para cada pergunta, você DEVE consultar TANTO a ferramenta de 'Compliance Docs' (documentos completos) quanto a ferramenta de 'QA Compliance' (perguntas e respostas). Combine as informações de ambas para uma resposta completa.\n3. Se a informação NÃO estiver nos documentos, responda APENAS: \"Não encontrei informações relevantes nos documentos consultados.\". NUNCA invente ou use conhecimento externo.\n4. Formate sua resposta usando MARKDOWN (títulos, bullet points, negrito) para facilitar a leitura.\n5. Sempre cite o nome do arquivo fonte se disponível.\n\nIdentifique o modelo de embedding: \"Segundo o modelo de embeddings Gemini\"."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        1072,
+        208
+      ],
+      "id": "27dc5e2f-2904-429d-ae22-c53ba191b287",
+      "name": "Agente Compliance Gemini"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1056,
+        400
+      ],
+      "id": "9819b0be-7ff2-45ef-9de5-8582e8c4dfd8",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "jvv7pMTBKruqMAjR",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Nesta coleção você encontra documentos de compliance completos de normas e leis. Utilize documentos de compliance completos como enriquecimento de informações sobre os normas e leis relevantes.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "compliance_gemini",
+          "mode": "list",
+          "cachedResultName": "compliance_gemini"
+        },
+        "topK": 10,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        1456,
+        400
+      ],
+      "id": "98bf1dff-f8c1-4db6-b238-30264121d37f",
+      "name": "Compliance Docs Gemini",
+      "credentials": {
+        "qdrantApi": {
+          "id": "HOEYWKCF9PjuuqWl",
+          "name": "QdrantApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/text-embedding-004"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1456,
+        576
+      ],
+      "id": "260dba3d-c9ca-43fb-b70f-9fd747e86cd6",
+      "name": "Embeddings Google Gemini",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "jvv7pMTBKruqMAjR",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Aqui estão armazenadas perguntas e respostas sobre documentos de compliance de normas e leis. Perguntas e respostas refinam melhor a indicação de concultores.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "qa_compliance_gemini",
+          "mode": "list",
+          "cachedResultName": "qa_compliance_gemini"
+        },
+        "topK": 10,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        1184,
+        400
+      ],
+      "id": "31060463-9d1a-4e20-b8fa-bf69b43a3eec",
+      "name": "QA Compliance Gemini",
+      "credentials": {
+        "qdrantApi": {
+          "id": "HOEYWKCF9PjuuqWl",
+          "name": "QdrantApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/text-embedding-004"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1184,
+        576
+      ],
+      "id": "abc9fda5-1c34-4ce7-9508-b4a9083c292d",
+      "name": "Embeddings Google Gemini1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "jvv7pMTBKruqMAjR",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"success\": true,\n  \"responses\": {\n    \"openai\": \"STRING_MARKDOWN\",\n    \"gemini\": \"STRING_MARKDOWN\"\n  }\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1824,
+        -48
+      ],
+      "id": "2efb9f68-bef0-4015-bc54-53efc1a56d72",
+      "name": "Structured Output Parser"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Lista Collections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agente Proxy",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lista Collections": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Agente Proxy",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Think": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente Proxy",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente Proxy": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Agente Proxy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Agente Proxy",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente Compliance Gemini": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente Proxy",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente Compliance OpenAI": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente Proxy",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QA Compliance Gemini": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente Compliance Gemini",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compliance Docs Gemini": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente Compliance Gemini",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compliance Docs OpenAI": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente Compliance OpenAI",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QA Compliance OpenAI": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente Compliance OpenAI",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "QA Compliance Gemini",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agente Compliance Gemini",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Compliance Docs Gemini",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agente Compliance OpenAI",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EmbOpenAI-QA": {
+      "ai_embedding": [
+        [
+          {
+            "node": "QA Compliance OpenAI",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EmbOpenAI-full": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Compliance Docs OpenAI",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "32167d15-519c-45cd-922e-cdac498006bf",
+  "meta": {
+    "instanceId": "6a5e83584ec1b6506cc9dee02a3b445542c217a03b70515be88f3c25c41fc217"
+  },
+  "id": "2TrARe9u5dihwNy8",
+  "tags": []
+}

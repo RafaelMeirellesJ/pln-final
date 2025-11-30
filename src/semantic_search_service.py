@@ -131,6 +131,7 @@ class SemanticSearchService:
             if response.status_code == 200:
                 n8n_result = response.json()
 
+
                 # Normalizar estrutura: alguns fluxos retornam sob 'output', outros no root
                 payload = n8n_result.get('output', n8n_result)
 
